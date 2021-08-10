@@ -1,4 +1,4 @@
-outdir = 'results/'
+outdir = 'results/input_data/'
 dir.create(outdir, showWarnings = F)
 
 ### process olink data

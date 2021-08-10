@@ -12,7 +12,7 @@ library('biomaRt')
 path.database <- "data/bio_annotations/c2.cp.reactome.v6.2.symbols.gmt" #REACTOME
 
 # load the factors 
-load("results/factorizations.RData")
+load("results/factors/factorizations.RData")
 
 cytof_fn = 'data/cmi_pb/cytof.pma.day0.proc.tsv'
 cytof = read.table(cytof_fn, header=T, row.names = 1)
@@ -27,7 +27,6 @@ features = list(cytof=cytof, olink=olink, rnaseq=rnaseq)
 
 results_folder = "results/factors_v_features/"
 dir.create(results_folder, showWarnings = F)
-
 
 # loading the biomart
 ensembl = useMart("ensembl", host="useast.ensembl.org", version =  )
@@ -61,7 +60,6 @@ for (i in seq(1, length(out$factorizations))){
   print("renaming complete")
 }
   
-
 ############################################
 ########## Using ggplot2 heatmaps ##########
 ############################################

@@ -1,3 +1,7 @@
+library("ggplot2")
+library("clusterCrit")
+source("scripts/runfactorization.R")
+
 # Performing the jDR's on the CMI-PB dataset
 # The performances of the 5 jDR methods are here.
 
@@ -6,7 +10,7 @@
 # so as to be read by run_factorization function.
 
 # Folder for results
-results_folder <- "results/"
+results_folder <- "results/factors/"
 
 # Create output folder
 dir.create(results_folder, showWarnings = FALSE)
@@ -21,32 +25,26 @@ dir.create(results_folder, showWarnings = FALSE)
 # to their cell line of origin is finally evaluated
 # through the C-index, whose value is reported in
 # the Results folder.
-
-library("ggplot2")
-library("clusterCrit")
-source("scripts/mods/runfactorization_seven_methods.R")
-
-# Parameters for the plots
-dot_size <- 1.5
-dot_alpha <- 1.0
-xlabel <- "Factor 1"
-ylabel <- "Factor 2"
-
 # Run factorization methods
 omic_fns <- c("rnaseq.momix.day0.input.tsv",
               "olink.momix.day0.input.tsv",
               "cytof.momix.day0.input.tsv")
-out <- runfactorization("results",
+out <- runfactorization("results/input_data/",
                         omic_fns,
                         10, 
                         sep=" ", 
                         filtering="stringent")
 
 # Save the factors
-fn = "results/factorizations.RData"
+fn = paste0(results_folder, "factorizations.RData")
 save.image(file = fn)
 
 ## For each factorization method
+# Parameters for the plots
+# dot_size <- 1.5
+# dot_alpha <- 1.0
+# xlabel <- "Factor 1"
+# ylabel <- "Factor 2"
 #for(i in 1:length(out$factorizations)){
 #    
 #    # Get factorization result

@@ -2,7 +2,7 @@ library("ggplot2")
 library("reshape2")
 
 # load the factors 
-load("results/factorizations.RData")
+load("results/factors/factorizations.RData")
 
 # load the task data 
 fn = "../cmi-pb-pertussis/output/tasks/tasks.tsv"
