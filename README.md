@@ -1,14 +1,6 @@
-![image](logo.jpg)
-# Multi-Omics MIX
-
-[![DOI](https://zenodo.org/badge/188984604.svg)](https://zenodo.org/badge/latestdoi/188984604)
-
-## Benchmark of multi-omics joint Dimensionality Reduction (jDR) approaches in cancer study
-
-![image](Figure1.jpg)
+## Benchmark of multi-omics joint Dimensionality Reduction (jDR) approaches in CMI-PB
 I have taken the original [momix-notebook repository](https://github.com/ComputationalSystemsBiology/momix-notebook)
-and evaluate 5 representative jDR approaches. I evaluate jDR approaches in the following
-contexts: 
+and investigated 5 representative jDR approaches. As part of this analysis I take a look at: 
 1. ability to identify factors associated with task data  
 2. metagenes associated with biological annotations (Reactome, GO, Hallmarks)
  
