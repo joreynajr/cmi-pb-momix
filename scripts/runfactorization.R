@@ -38,6 +38,7 @@ runfactorization <- function(folder, file.names, num.factors, sep=" ", filtering
   omics <- list()
   for(i in 1:length(file.names)){
     fn = paste(folder, file.names[i], sep="/")
+    print(fn)
     omics[[i]] <- read.table(fn, sep=sep, row.names=1, header=T)
     omics[[i]] <- as.matrix(omics[[i]])
   }
@@ -73,41 +74,43 @@ runfactorization <- function(folder, file.names, num.factors, sep=" ", filtering
           omics[[j]] <- omics[[j]][w,]
       }
       else{
-          omics[[j]] <- omics[[j]][which(apply(omics[[j]],2,sd)>0),]
+          #omics[[j]] <- omics[[j]][which(apply(omics[[j]],2,sd)>0),]
+          omics[[j]] <- omics[[j]]
       }
+      print(paste('Filtering on rows where the std is low', dim(omics[[j]])))
     }  
 
-  ##### scikit-fusion
-  print("##### scikit-fusion #####")
-  temp.folder <- 'data/scikit/'
-  dir.create(temp.folder, showWarnings=F)
-
-  files <- ""
-  for(j in 1:length(omics)){
-    write.table(omics[[j]],paste(temp.folder,"/omics",j,".txt",sep=""),sep=" ",col.names=T, row.names=T)
-    files<-paste(files,paste("omics",j,".txt",sep=""),sep=" ")
-  }
-
-  # calling the scikit fusion script
-  cmd = paste("python scripts/scikit_fusion.py", "'data/scikit/'", "'data/scikit/'",
-              num.factors, "' '", files, sep=" ")
-  print(paste0('cmd for scikit fusion: ', cmd))
-  system(cmd)
-
-    fn = paste(temp.folder,"signals.txt",sep="")
-    factors_scikit <- as.matrix(read.table(fn, sep="\t", header=F))
-    colnames(factors_scikit) <- 1:num.factors
-    rownames(factors_scikit) <- colnames(omics[[1]])
-    metagenes_scikit<-list()
-    for(j in 1:length(omics)){
-        metagenes_scikit[[j]] <- as.matrix(read.table(paste(temp.folder,"projomics",j,".txt",sep=""),sep="\t",header=F))
-        rownames(metagenes_scikit[[j]]) <- rownames(omics[[j]])
-        colnames(metagenes_scikit[[j]]) <- 1:num.factors
-    }
-    factorizations[[t]] <- list(factors_scikit,metagenes_scikit)
-    t<-t+1
-    method<-c(method,"scikit-fusion")
-    #unlink(temp.folder, recursive=T)
+#  ##### scikit-fusion
+#  print("##### scikit-fusion #####")
+#  temp.folder <- 'data/scikit/'
+#  dir.create(temp.folder, showWarnings=F)
+#
+#  files <- ""
+#  for(j in 1:length(omics)){
+#    write.table(omics[[j]],paste(temp.folder,"/omics",j,".txt",sep=""),sep=" ",col.names=T, row.names=T)
+#    files<-paste(files,paste("omics",j,".txt",sep=""),sep=" ")
+#  }
+#
+#  # calling the scikit fusion script
+#  cmd = paste("python scripts/scikit_fusion.py", "'data/scikit/'", "'data/scikit/'",
+#              num.factors, "' '", files, sep=" ")
+#  print(paste0('cmd for scikit fusion: ', cmd))
+#  system(cmd)
+#
+#    fn = paste(temp.folder,"signals.txt",sep="")
+#    factors_scikit <- as.matrix(read.table(fn, sep="\t", header=F))
+#    colnames(factors_scikit) <- 1:num.factors
+#    rownames(factors_scikit) <- colnames(omics[[1]])
+#    metagenes_scikit<-list()
+#    for(j in 1:length(omics)){
+#        metagenes_scikit[[j]] <- as.matrix(read.table(paste(temp.folder,"projomics",j,".txt",sep=""),sep="\t",header=F))
+#        rownames(metagenes_scikit[[j]]) <- rownames(omics[[j]])
+#        colnames(metagenes_scikit[[j]]) <- 1:num.factors
+#    }
+#    factorizations[[t]] <- list(factors_scikit,metagenes_scikit)
+#    t <- t + 1
+#    method<-c(method,"scikit-fusion")
+#    #unlink(temp.folder, recursive=T)
 
     ##### RGCCA 
     print("##### RGCCA #####")
@@ -217,18 +220,18 @@ runfactorization <- function(folder, file.names, num.factors, sep=" ", filtering
   
   ##### intNMF
   print("##### intNMF #####")
-  factorizations_intnmf<-nmf.mnnals(dat=lapply(omics_pos, function(x) t(x)), k=num.factors)
-  factors_intNMF <- as.matrix(factorizations_intnmf$W)
-  colnames(factors_intNMF) <- 1:num.factors
+  factorizations_intnmf = nmf.mnnals(dat=lapply(omics_pos, function(x) t(x)), k=num.factors)
+  factors_intNMF = as.matrix(factorizations_intnmf$W)
+  colnames(factors_intNMF) = 1:num.factors
   metagenes_intNMF <- list()
   for(j in 1:length(omics)){
-    metagenes_intNMF[[j]] <- t(factorizations_intnmf$H[[j]]) 
-    rownames(metagenes_intNMF[[j]]) <- rownames(omics[[j]])
-    colnames(metagenes_intNMF[[j]]) <- 1:num.factors
+    metagenes_intNMF[[j]] = t(factorizations_intnmf$H[[j]]) 
+    rownames(metagenes_intNMF[[j]]) = rownames(omics[[j]])
+    colnames(metagenes_intNMF[[j]]) = 1:num.factors
   }
-  factorizations[[t]] <- list(factors_intNMF,metagenes_intNMF)
-  t <- t+1
-  method <- c(method,"intNMF")
+  factorizations[[t]] = list(factors_intNMF,metagenes_intNMF)
+  t = t + 1
+  method = c(method,"intNMF")
   
   
   ##### JIVE
@@ -290,8 +293,7 @@ runfactorization <- function(folder, file.names, num.factors, sep=" ", filtering
   #	    icluster.clusters=as.matrix(factorizations_icluster$clusters),
   #            intNMF.clusters=as.matrix(factorizations_intnmf$clusters))
   out<-list(factorizations=factorizations, 
-            method=method,
-            intNMF.clusters=as.matrix(factorizations_intnmf$clusters))
+            method=method)
   
   return(out)
 }

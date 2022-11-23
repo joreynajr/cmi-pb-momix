@@ -14,7 +14,6 @@ nfactors = sys.argv[3]
 sep = sys.argv[4]
 datasets = sys.argv[5:]
 
-
 def strip_first_col(fname, delimiter=sep):
     with open(fname, 'r') as fin:
         for line in fin:
@@ -23,8 +22,6 @@ def strip_first_col(fname, delimiter=sep):
             except IndexError:
                continue
 
-
-
 t1 = fusion.ObjectType('Type 1', nfactors)
 tdata = [ fusion.ObjectType(dataset, nfactors) for dataset in datasets ]
 relations = []
@@ -32,7 +29,9 @@ for i in range(len(datasets)):
     relations.append(
         fusion.Relation(
             np.transpose(
-                np.loadtxt( strip_first_col(os.path.join(source_folder, datasets[i])), delimiter=sep, skiprows=1)
+                np.loadtxt(strip_first_col(os.path.join(source_folder, datasets[i])),
+                           delimiter=sep,
+                           skiprows=1)
             ), 
             t1, tdata[i]
         )
@@ -42,11 +41,16 @@ fusion_graph = fusion.FusionGraph()
 fusion_graph.add_relations_from(relations)
 print(fusion_graph)
 
+# generate teh Dfmf
 fuser = fusion.Dfmf()
 fuser.fuse(fusion_graph)
 
+# save the signals
+fn = os.path.join(output_folder,"signals.txt")
+np.savetxt(fn, fuser.factor(t1), delimiter='\t')
 
-np.savetxt(os.path.join(output_folder,"signals.txt"), fuser.factor(t1), delimiter='\t')
+# save each factor
 for i in range(len(datasets)):
-    np.savetxt(os.path.join(output_folder, "proj%s" %datasets[i]), fuser.factor(tdata[i]), delimiter='\t')
+    fn = os.path.join(output_folder, "proj{}".format(datasets[i]))
+    np.savetxt(fn, fuser.factor(tdata[i]), delimiter='\t')
 

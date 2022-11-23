@@ -1,4 +1,4 @@
-library("data.table", quietly = T)
+library("data.table", quietly=T)
 library("ggplot2", quietly=T)
 library("reshape2", quietly=T)
 library("stringr", quietly=T)
@@ -8,18 +8,24 @@ library("dplyr", quietly=T)
 library("ComplexHeatmap", quietly=T)
 library("circlize", quietly=T)
 library('biomaRt', quietly=T)
-library("fgsea", quietly = T)
+library("fgsea", quietly=T)
+library("argparse", quietly=T)
+
+parser = ArgumentParser()
+parser$add_argument("--path-database", type="character", help="MSigDB pathway gmt file.")
+parser$add_argument("--path-name", type="character", help="MSigDB pathway name for results folder.")
+params = parser$parse_args()
 
 # load the factors 
 load("results/factors/factorizations.RData")
 
 # set the results folder; needs to come after the previous load
 # or else it is overridden
-results_folder = "results/pathway_analysis/"
+results_folder = paste0("results/pathway_analysis/", params$path_name, "/")
 dir.create(results_folder, showWarnings = F)
 
 # Annotation databases used for biological enrichment
-path.database <- "data/bio_annotations/c2.cp.reactome.v6.2.symbols.gmt" #REACTOME
+path.database <- params$path_database
 
 # loading the biomart
 ensembl = useMart("ensembl", host="useast.ensembl.org", version =  )
@@ -129,27 +135,41 @@ biological_comparison <- function(factorizations, path.database, pval.thr=0.05){
             if(pval_check != 0){
                 
                 # Count this factor
-                n <- n + 1
+                n = n + 1
                 
                 # Keep min adjusted p-value
-                min_pval <- rbind(min_pval, min(fgseaRes$padj))
+                min_pval = rbind(min_pval, min(fgseaRes$padj))
                 
                 # Keep names of significant pathways
-                path <- c(path, fgseaRes[fgseaRes$padj<pval.thr, "pathway"])
+                path = c(path, fgseaRes[fgseaRes$padj<pval.thr, "pathway"])
+                
+                # Make a directory to save component specific pathways 
+                sig_folder = paste0(results_folder, out$method[[i]], '/')
+                dir.create(sig_folder, showWarnings = F)
+
+                # Create a helper padj vector for filtering the rows
+                padj_vals = fgseaRes$padj
+                padj_vals[is.na(padj_vals)] = 1
+
+                # Saved a filtered dataframe of significant pathways
+                fn = sprintf(paste0(sig_folder, 'component%s_pathways.tsv'), j)
+
+                sig_paths = fgseaRes[padj_vals < pval.thr,]
+                fwrite(sig_paths, file=fn, sep='\t', quote=F)
                 
             } else {
-                min_pval <- rbind(min_pval, NA)
+                min_pval = rbind(min_pval, NA)
             }
         }
 
         # Report number of unique significant pathways  
         cat("# Report number of unique significant pathways\n")
         if(length(path)==0){
-            report_number <- rbind(report_number, 0)
+            report_number = rbind(report_number, 0)
         }
         else{
-            report_number <- rbind(report_number, length(unique(path)))
-            fwrite(list(path), file = paste0(results_folder, out$method[[i]], "_paths.txt"))
+            report_number = rbind(report_number, length(unique(path)))
+            fwrite(list(path), file = paste0(results_folder, 'path_', out$method[[i]], ".txt"))
         }
         
         # Report selectivity 

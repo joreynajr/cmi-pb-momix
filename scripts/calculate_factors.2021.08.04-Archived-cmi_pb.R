@@ -1,26 +1,21 @@
 library("ggplot2")
 library("clusterCrit")
-#source("scripts/runfactorization.R")
-source("scripts/runfactorization.jive.R")
+source("scripts/runfactorization.R")
 
 # Performing the jDR's on the CMI-PB dataset
 # The performances of the 5 jDR methods are here.
 
 ########## Data preprocessing ##########
-print("########## Data preprocessing ##########")
 # The data has been reformatted in Process_cmi_pb_data.R
 # so as to be read by run_factorization function.
 
 # Folder for results
-print("# Folder for results")
 results_folder <- "results/factors/"
 
 # Create output folder
-print("# Create output folder")
 dir.create(results_folder, showWarnings = FALSE)
 
-########## Running factorization ##########
-print("########## Running factorization ##########")
+########## Running comparison ##########
 # Two factor are then detected for each
 # jDR method and the distribution of the cells
 # with respect of Factor1 and Factor2 is plotted
@@ -31,18 +26,16 @@ print("########## Running factorization ##########")
 # through the C-index, whose value is reported in
 # the Results folder.
 # Run factorization methods
-omic_fns <- c("rnaseq.2020.momix.day0.input.tsv",
-              "olink.2020.momix.day0.input.tsv",
-              "cytof.2020.momix.day0.input.tsv")
+omic_fns <- c("rnaseq.momix.day0.input.tsv",
+              "olink.momix.day0.input.tsv",
+              "cytof.momix.day0.input.tsv")
 out <- runfactorization("results/input_data/",
                         omic_fns,
                         10, 
-                        sep="\t", 
-                        filtering="none")
-                        #filtering="stringent")
+                        sep=" ", 
+                        filtering="stringent")
 
 # Save the factors
-print("# Save the factors")
 fn = paste0(results_folder, "factorizations.RData")
 save.image(file = fn)
 

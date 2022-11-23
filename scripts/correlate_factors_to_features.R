@@ -8,9 +8,6 @@ library("ComplexHeatmap")
 library("circlize")
 library('biomaRt')
 
-# Annotation databases used for biological enrichment
-path.database <- "data/bio_annotations/c2.cp.reactome.v6.2.symbols.gmt" #REACTOME
-
 # load the factors 
 load("results/factors/factorizations.RData")
 
@@ -29,8 +26,12 @@ results_folder = "results/factors_v_features/"
 dir.create(results_folder, showWarnings = F)
 
 # loading the biomart
-ensembl = useMart("ensembl", host="useast.ensembl.org", version =  )
+ensembl = useMart("ensembl", host="useast.ensembl.org", version = 104)
 mart <- useDataset("hsapiens_gene_ensembl", ensembl)
+
+##################################
+##### Preprocessing the data #####
+##################################
 
 # change the metagene ensembl id to hgnc name
 for (i in seq(1, length(out$factorizations))){
@@ -59,15 +60,31 @@ for (i in seq(1, length(out$factorizations))){
   out$factorizations[[i]][[3]][[1]] = new_factored_data
   print("renaming complete")
 }
-  
+
 ############################################
-########## Using ggplot2 heatmaps ##########
+#### Plot Heatmap Using ComplexHeatmaps ####
 ############################################
 
 # Function: correlates components versus feature data
-make_basic_heatmap <- function(feat, feat_data, factor_out){
+make_heatmap <- function(feat,
+                         feat_data,
+                         factor_out,
+                         clust_cols=T,
+                         clust_rows=T, 
+                         vis_fill_vals=F){
   
   plot_list = list()
+  
+  # set the cell func
+  if (vis_fill_vals == T){
+    cell_func <- function(j, i, x, y, width, height, fill){
+      text = sprintf("%.2f", factor_corrs[i, j])
+      grid.text(text, x, y, gp = gpar(fontsize = 5))
+    }
+  }
+  else {
+    cell_func <- NULL
+  }
   
   # correlate the tasks and factors
   for (i in seq(1,5)){
@@ -83,78 +100,30 @@ make_basic_heatmap <- function(feat, feat_data, factor_out){
     # correlate the factors and task
     factor_corrs = cor(final_factors, final_features)
     factor_corrs = factor_corrs[ , colSums(is.na(factor_corrs)) == 0]
-    factor_corrs = melt(factor_corrs)
-    colnames(factor_corrs) = c('comp', 'feature', 'comp_val')
-    factor_corrs[, 'comp'] = gsub("^.*([0-9]+)$", '\\1', factor_corrs[, 'comp'])
-    
-    # make a heatmap of the correlations
-    p = ggplot(factor_corrs, aes(comp, feature, fill= comp_val)) + 
-      geom_tile()
-    title = sprintf('%s components versus %s', method, toupper(feat_name))
-    p = p + ggtitle(title)
-    p = p + theme(plot.title = element_text(size=12)) 
-    p = p + scale_fill_distiller(palette = 'RdYlBu', limits=c(-1, 1))
-    plot_list[[i]] = p
-  }
-  return(plot_list)
-}
-
-for (feat_name in names(features)){
-  
-  # generate heatmaps in ggplot
-  plot_list = make_basic_heatmap(feat_name, features[[feat_name]], out)
-
-  # save the heatmaps to separate pdf pages
-  fn = paste0(results_folder, feat_name, '.pdf')
-  pdf(fn, onefile = TRUE)
-  for (i in seq(1, length(plot_list))){
-    print(plot_list[[i]])
-  }
-  dev.off()
-}
-
-############################################
-########## Using ComplexHeatmaps ###########
-############################################
-
-# Function: correlates components versus feature data
-make_basic_heatmap_v2 <- function(feat, feat_data, factor_out){
-  
-  plot_list = list()
-  
-  # correlate the tasks and factors
-  for (i in seq(1,5)){
-    
-    # harmonize the data
-    method = factor_out$method[[i]]
-    factors = factor_out$factorizations[[i]][[1]]
-    row.names(factors) = gsub('X', '', row.names(factors))
-    shared_samples = intersect(row.names(factors), row.names(feat_data))
-    final_factors = factors[shared_samples, ]
-    final_features = feat_data[shared_samples, ]
-    
-    # correlate the factors and task
-    factor_corrs = cor(final_factors, final_features)
-    factor_corrs = factor_corrs[ , colSums(is.na(factor_corrs)) == 0]
-    rownames(factor_corrs) = gsub("^.*([0-9]+)$", '\\1', rownames(factor_corrs))
+    rownames(factor_corrs) = gsub("comp|SynVar", '\\1', rownames(factor_corrs))
+    rownames(factor_corrs) = paste0('F', rownames(factor_corrs))
     color_func = colorRamp2(c(-1, 0, 1), c("blue", "white", "red"))
     
     # make a heatmap of the correlations
-    title = sprintf('%s components versus %s', method, toupper(feat_name))
+    title = sprintf('%s factors versus %s', method, toupper(feat))
     show_cols = T
-    if (feat_name %in% c('rnaseq', 'olink')){
+    if (feat %in% c('rnaseq', 'olink')){
       show_cols = F
     }
     
     p = Heatmap(factor_corrs, 
             name = "Pearson's R", 
             column_title = title,
-            row_title = "Components",
+            row_title = "Factors",
             row_names_gp = gpar(fontsize = 7),
             col = color_func,
-            show_column_names = show_cols
-    )    
-    plot_list[[i]] = p
+            cluster_rows = clust_rows,
+            show_column_names = show_cols,
+            cluster_columns = clust_cols,
+            cell_fun = cell_func,
+            heatmap_width = unit(5.5, "in"),
+            heatmap_height = unit(6, "in"))
+    print(p)
   }
   return(plot_list)
 }
@@ -163,21 +132,65 @@ for (feat_name in names(features)){
   
   print(feat_name)
   
-  # generate heatmaps in ggplot
-  plot_list = make_basic_heatmap_v2(feat_name, features[[feat_name]], out)
-
   # save the heatmaps to separate pdf pages
-  fn = paste0(results_folder, feat_name, '_v3.pdf')
+  fn = paste0(results_folder, feat_name, '2.pdf')
   pdf(fn, onefile = TRUE)
-  for (i in seq(1, length(plot_list))){
-    print(plot_list[[i]])
+  
+  # Set cytof configuration or RNA-seq/Olink configuration
+  clust_cols = T
+  vis_fill_vals = F
+  if (feat_name == 'cytof'){
+    clust_cols = T
+    vis_fill_vals = T
   }
+  
+  # generate heatmaps in ggplot
+  plot_list = make_heatmap(feat_name, features[[feat_name]], out,
+                           clust_row = F, 
+                           clust_cols = clust_cols, 
+                           vis_fill_vals = vis_fill_vals)
+  # close pdf
   dev.off()
+  
 }
 
-############################################
-########## Filtering #######################
-############################################
+# Find genes with large correlations in at least one factor
+# correlate the tasks and factors
+factor_out = out
+feat_name = 'cytof'
+feat_data = features[[feat_name]]
+for (i in seq(1,5)){
+  
+  # harmonize the data
+  method = factor_out$method[[i]]
+  factors = factor_out$factorizations[[i]][[1]]
+  row.names(factors) = gsub('X', '', row.names(factors))
+  shared_samples = intersect(row.names(factors), row.names(feat_data))
+  final_factors = factors[shared_samples, ]
+  final_features = feat_data[shared_samples, ]
+  
+  # correlate the factors and task
+  factor_corrs = cor(final_factors, final_features)
+  factor_corrs = factor_corrs[ , colSums(is.na(factor_corrs)) == 0]
+  rownames(factor_corrs) = gsub("comp|SynVar", '\\1', rownames(factor_corrs))
+  rownames(factor_corrs) = paste0('F', rownames(factor_corrs))
+  
+  summary = apply(factor_corrs,
+                  2,
+                  FUN=function(x) return(sum(abs(x) > 0.75)))
+  print(summary)
+
+}
+
+
+
+
+
+
+
+####################################################
+# Plot RNA-seq genes with most variance#
+####################################################
 
 # filtering based on the variances of gene expression
 # filtering is done using a percentile min and max
@@ -201,170 +214,89 @@ filter_by_percentile <- function(vec, pmin, pmax){
   bools = unlist(bools)
   return(bools)
 }
-flt_bools = filter_by_percentile(rnaseq_variance[, 1], 0.995, 1)
-flt_genes = rownames(rnaseq_variance)[flt_bools]
-flt_rnaseq = rnaseq[,flt_genes]
+#flt_bools = filter_by_percentile(rnaseq_variance[, 1], 0.999, 1)
+#flt_genes = rownames(rnaseq_variance)[flt_bools]
+#flt_rnaseq = rnaseq[,flt_genes]
 
-# generate heatmaps in ggplot
-plot_list = make_basic_heatmap_v2('rnaseq', flt_rnaseq, out)
+flt_rnaseq = rnaseq[,order(rnaseq_variance, decreasing=T)[1:20]]
+
+hgnc_list <- getBM(filters="ensembl_gene_id",
+                   attributes=c("ensembl_gene_id", "hgnc_symbol"),
+                   values=colnames(flt_rnaseq),
+                   uniqueRows = F,
+                   verbose = 104,
+                   mart=mart)
+
+
+print("renaming now")
+colnames(flt_rnaseq) = hgnc_list$hgnc_symbol
+
+
+
+##### Plot
+feat = 'rnaseq_flt'
+feat_data = flt_rnaseq
 
 # save the heatmaps to separate pdf pages
-fn = paste0(results_folder, 'rnaseq_flt', '_v3.pdf')
+fn = paste0(results_folder, 'rnaseq_flt.pdf')
 pdf(fn, onefile = TRUE)
-for (i in seq(1, length(plot_list))){
-  print(plot_list[[i]])
-}
+plot_list = make_heatmap(feat, feat_data, out,
+                         vis_fill_vals = T,
+                         clust_row=F, 
+                         clust_cols = F)
 dev.off()
 
 
-########################################
-######## biological comparison #########
-########################################
 
-## Perform biological annotation-based comparison 
+####################################################
+# Plot Olink genes with most variance#
+####################################################
 
-library("fgsea", quietly = TRUE)
+# filtering based on the variances of gene expression
+# filtering is done using a percentile min and max
+olink_variance = olink %>% summarise_all(var)
+olink_variance =  t(olink_variance)
 
-## Perform biological annotation-based comparison 
-## INPUTS:
-# factorizations = already computed factorizations
-# path.database = path to a GMT annotation file
-# pval.thr = p-value threshold (default to 0.05)
-## OUPUTS: a list containing output values
-# selectivity = Selectivity (fraction of significant annotations per all significant factors)
-# nonZeroFacs = Number of unique factors that were significant at least once
-# total_pathways = Number of clinical annotations with at least one significant factor component
-biological_comparison <- function(factorizations, path.database, pval.thr=0.05){
-    
-    # Load annotation database
-    pathways <- gmtPathways(path.database)
-    
-    # Containers to report results
-    report_number <- numeric(0)
-    report_nnzero <- numeric(0)
-    report_select <- numeric(0)
-    
-    # For each factorization method
-    for(i in 1:length(factorizations)){
-        
-        cat(paste0("Studying factor: ", i, "\n"))
-        
-        # Extract metagenes found by factorization method
-        cat("# Extract metagenes found by factorization method\n")
-        metagenes <- factorizations[[i]][[3]][[1]]
-        
-        #cat("metagenes 1:\n")
-        #print(metagenes[1:10, 1:10])
-        
-        # Number of factors
-        num.factors <- ncol(metagenes)
-        cat(paste0("# Number of factors: ", num.factors, "\n"))
-        
-        #cat("metagenes 2:\n")
-        #print(metagenes[1:10, 1:10])
-        
-        # Rename columns
-        cat("# Rename columns\n")
-        colnames(metagenes) <- 1:num.factors
-        
-        # Rename rows to remove "|" characters and keep only the gene name before
-        cat("# Rename rows to remove '|' characters and keep only the gene name before\n")
-        rownames(metagenes) <- gsub("\\|",".",rownames(metagenes))
-        rownames(metagenes) <- gsub("\\..*","",rownames(metagenes))
-        
-        # Remove duplicated gene names that could confuse fgsea
-        cat("# Remove duplicated gene names that could confuse fgsea\n")
-        duplicated_names <- unique(rownames(metagenes)[duplicated(rownames(metagenes))])
-        metagenes <- metagenes[!(rownames(metagenes) %in% duplicated_names), ]
-        
-        #cat("metagenes 3:\n")
-        #print(metagenes[1:10, 1:10])
-        
-        # Variables
-        min_pval <- numeric(0)
-        path <- numeric(0)
-        n <- 0
-        
-        # Calculate biological annotation enrichment.
-        cat("# Calculate biological annotation enrichment.\n")
-        # For each factor,
-        for(j in 1:num.factors){
-          
-            # Assign gene names
-            cat("\t# Assign gene names\n")
-            rnk <- setNames(as.matrix(metagenes[,j]), rownames(metagenes))
-            
-            # Compute fgsea
-            cat("\t# Compute fgsea\n")
-            #fgseaRes <- fgsea(pathways, rnk, minSize=15, maxSize=500, nperm=1000)
-            fgseaRes <- fgseaMultilevel(pathways, rnk, nPermSimple = 10000,minSize=15, maxSize=500)
-            
-            # If at least one pathway is significant
-            cat("\t# If at least one pathway is significant\n")
-            
-            print(paste0("fgseaRes: ", fgseaRes))
-            
-            
-            if(sum(fgseaRes$padj < pval.thr)!=0){
-                
-                # Count this factor
-                n <- n+1
-                
-                # Keep min adjusted p-value
-                min_pval <- rbind(min_pval, min(fgseaRes$padj))
-                
-                # Keep names of significant pathways
-                path <- c(path, fgseaRes[fgseaRes$padj<pval.thr, "pathway"])
-                
-            } else {
-                min_pval <- rbind(min_pval, NA)
-            }
-        }
-
-        # Report number of unique significant pathways  
-        cat("# Report number of unique significant pathways\n")
-        if(length(path)==0){
-            report_number <- rbind(report_number, 0)
-        }else{
-            report_number <- rbind(report_number, length(unique(path)))
-        }
-        
-        # Report selectivity 
-        cat("# Report selectivity\n")
-        if(length(unique(path))==0){
-            report_select <- rbind(report_select, NA)
-        }else{
-            al<-length(unique(path))/length(path)
-            fl<-length(which(!is.na(min_pval)))/length(path)
-            report_select <- rbind(report_select, (al+fl)/2)
-        }
-        
-        # Report number of factors associated with at least one significant pathway
-        cat("# Report number of factors associated with at least one significant pathway\n")
-        report_nnzero <- rbind(report_nnzero, n)    
-    
-        cat("\n")
-    }
-    
-    # reporting the selectivity, number of factors associated with at 
-    # least one significant pathway, and the total number of significant
-    # pathways
-    out <- data.frame(selectivity=report_select,
-                      nonZeroFacs=report_nnzero,
-                      total_pathways=report_number)
-    return(out)
-}
-
-bio_comp = biological_comparison(out$factorizations, path.database, pval.thr=0.05)
-fn = paste0(results_folder, 'report.tsv')
-write.table(bio_comp, file=fn, quote = F, sep="\t")
+flt_olink = olink[,order(olink_variance, decreasing=T)[1:20]]
 
 
+#print("renaming now")
+olink_meta = read.table("../cmi-pb-pertussis/output/database_dump/olink_prot_info_dump.tsv",
+                              header=T)
 
+hgnc_list <- getBM(filters="uniprot_gn_id",
+                   attributes=c("uniprot_gn_id", "hgnc_symbol"),
+                   values=olink_meta$uniprot_id,
+                   uniqueRows = F,
+                   verbose = 104,
+                   mart=mart)
 
+olink_meta = merge(olink_meta, 
+                   hgnc_list,
+                   by.x = 'uniprot_id',
+                   by.y='uniprot_gn_id')
 
+olink_meta = olink_meta[!duplicated(olink_meta), ]
 
+# rename the columns of the olink dataframe
+final_hgnc = match(colnames(flt_olink), olink_meta$olink_id)
+final_hgnc = olink_meta$hgnc_symbol[final_hgnc]
+colnames(flt_olink) = final_hgnc
 
+# remove na's 
+na_cols = is.na(colnames(flt_olink))
+olink = olink[, !na_cols]
 
+##### Plot
+feat = 'olink_flt'
 
+feat_data = flt_olink
 
+# save the heatmaps to separate pdf pages
+fn = paste0(results_folder, 'olink_flt.pdf')
+pdf(fn, onefile = TRUE)
+plot_list = make_heatmap(feat, feat_data, out,
+                         vis_fill_vals = T,
+                         clust_row=F, 
+                         clust_cols = F)
+dev.off()
